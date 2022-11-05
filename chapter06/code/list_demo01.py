@@ -1,6 +1,5 @@
-
 # 索引方式
-list1 = [1, 2, 3]
+# list1 = [1, 2, 3]
 
 # 索引取值
 # print(list1[0])
@@ -32,3 +31,4 @@ list2 = ['a', 'b', 'c', 'd', 'e']
 # list2[2:4] = []
 # print(list2)
 
+list
