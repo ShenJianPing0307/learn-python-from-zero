@@ -31,7 +31,7 @@ def dispatch_request(request):
 
 def application(environ, start_response):
     request = Request(environ)
-    text = dispatch_request(request)
+    text = dispatch_request(request) # b"index"
     response = Response(text)
     return response(environ, start_response)
 

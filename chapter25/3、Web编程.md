@@ -664,3 +664,300 @@ if __name__ == '__main__':
 
 ```
 
+### （四）实例
+
+#### 1、创建文件夹
+
+在开始之前，创建这个应用程序所需的文件夹:
+
+```python
+/manager
+    /static
+    /templates
+```
+
+manager文件夹不是一个python包，而只是我们放置文件的地方。直接进入这个文件夹，然后我们将把我们的主模块直接放到这个文件夹。应用程序的用户可以通过HTTP访问静态文件夹中的文件。这是存放CSS和JavaScript文件的地方。在模板文件夹中，我们将让Jinja2查找模板。
+
+#### 2、基础结构
+
+现在，让我们开始为应用程序创建一个模块。让我们在manager文件夹中创建一个名为main.py的文件。
+
+```python
+import os
+import redis
+from werkzeug.urls import url_parse
+from werkzeug.wrappers import Request, Response
+from werkzeug.routing import Map, Rule
+from werkzeug.exceptions import HTTPException, NotFound
+from werkzeug.middleware.shared_data import SharedDataMiddleware
+from werkzeug.utils import redirect
+from jinja2 import Environment, FileSystemLoader
+```
+
+然后，我们可以为我们的应用程序创建基本结构和一个函数来创建它的新实例，还可以选择使用一个WSGI中间件来导出web上静态文件夹中的所有文件：
+
+```python
+class Application:
+
+    def dispatch_request(self, request):
+        adapter = self.url_map.bind_to_environ(request.environ)
+        try:
+            endpoint, values = adapter.match()
+            return getattr(self, f'on_{endpoint}')(request, **values)
+        except HTTPException as e:
+            return e
+
+    def wsgi_app(self, environ, start_response):
+        request = Request(environ)
+        response = self.dispatch_request(request)
+        return response(environ, start_response)
+
+    def __call__(self, environ, start_response):
+        return self.wsgi_app(environ, start_response)
+
+
+if __name__ == '__main__':
+    # 加入静态文件，如果不需要直接使用 app = Application() 即可
+    app = SharedDataMiddleware(Application(), {'/static': os.path.join(os.path.dirname(__file__), 'static')})
+    run_simple('127.0.0.1', 5003, app)
+
+```
+
+这里的基本思想是我们的Application类是一个实际的WSGI应用程序。__call__方法直接分派到wsgi_app。这样我们就可以包装wsgi_app来应用中间件。实际的wsgi_app方法创建一个Request对象并调用dispatch_request方法，该方法必须返回一个Response对象，然后再次作为WSGI应用程序。
+
+创建应用程序的新实例。它不仅将一些参数作为配置传递给应用程序，而且还可选地添加一个导出静态文件的WSGI中间件。这样，即使我们没有配置服务器来提供这些文件，我们也可以从静态文件夹中访问这些文件，这对开发非常有帮助。
+
+#### 3、环境
+
+现在我们有了基本的应用程序类，我们可以让构造函数做一些有用的事情，并在那里提供一些有用的帮助程序。让我们扩展一下类:
+
+```python
+    def __init__(self):
+        template_path = os.path.join(os.path.dirname(__file__), 'templates')
+        self.jinja_env = Environment(loader=FileSystemLoader(template_path), 		                                        autoescape=True)
+
+
+    def render_template(self, template_name, **context):
+        t = self.jinja_env.get_template(template_name)
+        return Response(t.render(context), mimetype='text/html')
+```
+
+#### 4、路由
+
+接下来是路由。路由是将URL匹配并解析为我们可以使用的内容的过程。Werkzeug提供了一个灵活的集成路由系统，我们可以使用它。它的工作方式是创建一个Map实例并添加一堆Rule对象。每个规则都有一个模式，它将尝试匹配URL和一个“端点”。端点通常是一个字符串，可用于唯一地标识URL。我们也可以使用它来自动反转URL。
+
+把这个放进构造函数:
+
+```python
+    def __init__(self):
+        self.url_map = Map([
+            Rule('/list', endpoint='list'),
+            Rule('/detail/<id>', endpoint='detail')
+        ])
+```
+
+这里使用了两个规则创建一个URL映射。
+
+那么如何从端点找到函数呢?这取决于你。在本教程中，我们将在类本身上调用方法on_ + endpoint。下面是它的工作原理：
+
+```python
+    def dispatch_request(self, request):
+        adapter = self.url_map.bind_to_environ(request.environ)
+        try:
+            endpoint, values = adapter.match()
+            return getattr(self, f'on_{endpoint}')(request, **values)
+        except HTTPException as e:
+            return e
+```
+
+我们将URL映射绑定到当前环境，返回URLAdapter。适配器可用于匹配请求，也可用于反向url。match方法将返回端点和URL中的值字典。
+
+如果它不匹配任何东西，它将引发NotFound异常，这是一个HTTPException。所有HTTP异常本身也是WSGI应用程序，它们呈现默认错误页面。我们只需要把它们都捕捉下来，然后返回错误本身。 
+
+如果一切正常，我们调用on_ + endpoint函数，并将请求作为参数传递给它，并将所有URL参数作为关键字参数传递给它，并返回方法返回的响应对象。
+
+#### 5、视图
+
+创建两个URL映射的视图函数：
+
+```python
+    def on_list(self, request):
+        if request.method == 'GET':
+            return self.render_template('list.html', data=self.stu_list)
+
+    def on_detail(self, request, id):
+        obj = {}
+        for stu in self.stu_list:
+            if stu.get("id") == int(id):
+                obj = stu
+        return self.render_template('detail.html', obj=obj)
+```
+
+根据不同的请求method获取不同的资源，一般进行业务处理，从数据库中获取数据进行处理，然后返回给页面，这里通过指定的数据模拟数据库中的数据，在构造方法中：
+
+```python
+    def __init__(self):
+        self.stu_list = [
+            {"id": 1, "name": "zhangsan", "age": 15},
+            {"id": 2, "name": "lisi", "age": 13},
+        ]
+```
+
+#### 6、模板
+
+将所有的模板文件放入templates目录中，jinja2支持模板很多操作，如：渲染后台数据、模板继承等。
+
+- list.html
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link rel="stylesheet" href="/static/list.css">
+</head>
+<body>
+<div id="title">学生列表</div>
+{% for stu in data %}
+    <p><a href="/detail/{{ stu.id }}">{{ stu.name }}</a></p>
+{% endfor %}
+</body>
+</html>
+```
+
+- detail.html
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+{% if obj %}
+    {{ obj.id }}-{{ obj.name }}-{{ obj.age }}
+{% endif %}
+</body>
+</html>
+```
+
+#### 7、样式表
+
+在html模板中，虽然渲染了后台的数据，但是页面样式有所欠缺，此时可以在`static`目录中引入list.css样式表：
+
+```css
+body { background: #E8EFF0; margin: 0; padding: 0; }
+# title {
+    background-color: aqua;
+  }
+```
+
+然后在模板中引入即可。
+
+#### 8、完整后台代码
+
+```python
+from werkzeug.serving import run_simple
+from werkzeug.wrappers import Request, Response
+from werkzeug.routing import Map, Rule
+from werkzeug.exceptions import HTTPException, NotFound
+from werkzeug.middleware.shared_data import SharedDataMiddleware
+import os
+from jinja2 import Environment, FileSystemLoader
+
+
+class Application:
+
+    def __init__(self):
+        self.url_map = Map([
+            Rule('/list', endpoint='list'),
+            Rule('/detail/<id>', endpoint='detail')
+        ])
+        template_path = os.path.join(os.path.dirname(__file__), 'templates')
+        self.jinja_env = Environment(loader=FileSystemLoader(template_path), autoescape=True)
+        self.stu_list = [
+            {"id": 1, "name": "zhangsan", "age": 15},
+            {"id": 2, "name": "lisi", "age": 13},
+        ]
+
+    def render_template(self, template_name, **context):
+        t = self.jinja_env.get_template(template_name)
+        return Response(t.render(context), mimetype='text/html')
+
+    def on_list(self, request):
+        if request.method == 'GET':
+            return self.render_template('list.html', data=self.stu_list)
+
+    def on_detail(self, request, id):
+        obj = {}
+        for stu in self.stu_list:
+            if stu.get("id") == int(id):
+                obj = stu
+        return self.render_template('detail.html', obj=obj)
+
+    def dispatch_request(self, request):
+        adapter = self.url_map.bind_to_environ(request.environ)
+        try:
+            endpoint, values = adapter.match()
+            return getattr(self, f'on_{endpoint}')(request, **values)
+        except HTTPException as e:
+            return e
+
+    def wsgi_app(self, environ, start_response):
+        request = Request(environ)
+        response = self.dispatch_request(request)
+        return response(environ, start_response)
+
+    def __call__(self, environ, start_response):
+        return self.wsgi_app(environ, start_response)
+
+
+if __name__ == '__main__':
+    # 加入静态文件，如果不需要直接使用 app = Application() 即可
+    app = SharedDataMiddleware(Application(), {'/static': os.path.join(os.path.dirname(__file__), 'static')})
+    run_simple('127.0.0.1', 5003, app)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
