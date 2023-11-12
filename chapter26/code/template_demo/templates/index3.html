@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+{% macro func1(name) %} <!--定义func1函数-->
+    {{ name }}
+{% endmacro %}
+
+<p>标题</p>
+{{ func1('hello') }} <!--调用定义的函数-->
+</body>
+</html>

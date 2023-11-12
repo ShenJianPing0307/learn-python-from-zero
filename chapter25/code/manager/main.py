@@ -13,6 +13,7 @@ class Application:
         template_path = os.path.join(os.path.dirname(__file__), "template")
         self.jinja_env = Environment(loader=FileSystemLoader(template_path), autoescape=True)
         self.url_map = Map([
+            Rule('/add', endpoint='add'),
             Rule('/list', endpoint='list'),
             Rule('/detail/<id>', endpoint='detail')
         ])
@@ -20,6 +21,15 @@ class Application:
             {"id": 1, "name": "zhangsan", "age": 15},
             {"id": 2, "name": "lisi", "age": 13},
         ]
+    def on_add(self, request):
+        if request.method == 'GET':
+            return self.render_template('add.html')
+        elif request.method == 'POST':
+            id = request.form.get('id')
+            name = request.form.get('name')
+            age = request.form.get('age')
+            self.stu_list.append({'id':id, 'name':name, 'age':age})
+            return self.render_template('list.html', data=self.stu_list)
 
     def on_list(self, request):
         if request.method == 'GET':

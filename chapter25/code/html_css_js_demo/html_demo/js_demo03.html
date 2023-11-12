@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<form id="register" action="#">
+    <input type="text" name="username" id="username"/>
+    <input type="submit" value="提交"/>
+</form>
+
+<script>
+    document.getElementById("username").onblur = function () {
+        console.log("onblur")
+    }
+
+    document.getElementById("username").onfocus = function () {
+        console.log("onfocus")
+    }
+
+    document.getElementById("register").onsubmit = function () {
+        window.alert("提交数据")
+    }
+</script>
+</body>
+</html>

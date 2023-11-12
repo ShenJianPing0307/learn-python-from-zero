@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+提交1：<input type="button" onclick="on()"/>
+提交2：<input type="button" id="btn"/>
+
+<script>
+    function on() {
+        window.alert("提交数据1")
+    }
+
+    document.getElementById("btn").onclick = function () {
+        window.alert("提交数据2")
+    }
+</script>
+</body>
+</html>

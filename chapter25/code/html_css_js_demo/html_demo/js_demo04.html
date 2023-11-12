@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<div>
+    <h1>欢迎注册</h1>
+
+    <form>
+        <table>
+            <tr>
+                <td>用户名：</td>
+                <td>
+                    <input type="text" name="username" id="username"/>
+                    <span id="username_err" style="color:red;display: none">用户名不符合条件</span>
+                </td>
+            </tr>
+            <tr>
+                <td>密码：</td>
+                <td><input type="password" name="password" id="password"/></td>
+            </tr>
+        </table>
+        <div>
+            <input type="submit" id="reg_btn" value="注册"/>
+        </div>
+    </form>
+</div>
+
+<script>
+    var usernameInput = document.getElementById("username")
+    usernameInput.onblur = function () {
+        let usernameValue = usernameInput.value.trim(); //获取值，去空格
+        //
+        if(usernameValue.length >= 6 && usernameValue.length <= 12) {
+            // 符合条件
+
+        } else {
+           document.getElementById("username_err").style.display="";
+        }
+    }
+
+
+</script>
+</body>
+</html>
