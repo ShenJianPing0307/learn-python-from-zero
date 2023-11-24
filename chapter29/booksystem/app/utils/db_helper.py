@@ -14,11 +14,11 @@ class DBHelper:
                                     )
         self.logger = Logger("SQL")
 
-    def execute(self, sql):
+    def execute(self, sql, args=None):
         '''增、删、改  commit'''
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(sql)
+                cursor.execute(sql, args)
                 self.conn.commit()
         except Exception as e:
             self.logger.error("执行SQL错误，错误原因{}，执行SQL:{}".format(e, sql))
